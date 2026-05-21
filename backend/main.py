@@ -15,8 +15,9 @@ if str(ROOT) not in sys.path:
 
 load_dotenv(ROOT.parent / ".env")
 
+from data.journey import REGIONS, build_journey_plan
 from data.products import FASHION_ITEMS, SKIN_PRODUCTS, recommend_for_conditions
-from services import llm_gateway, perfectcorp
+from services import llm_gateway, perfectcorp, perfectcorp_vto
 from services.resilience import CHAOS, set_chaos
 
 logging.basicConfig(
@@ -55,6 +56,12 @@ class TryOnRequest(BaseModel):
     garment_id: str
 
 
+class JourneyPlanRequest(BaseModel):
+    conditions: list[dict] = Field(default_factory=list)
+    recommendations: list[dict] | None = None
+    region: str = "pan-africa"
+
+
 @app.get("/health")
 def health():
     return {
@@ -88,6 +95,19 @@ def fashion_products():
     return {"products": FASHION_ITEMS}
 
 
+@app.get("/api/journey/regions")
+def journey_regions():
+    return {"regions": REGIONS}
+
+
+@app.post("/api/journey/plan")
+def journey_plan(body: JourneyPlanRequest):
+    plan = build_journey_plan(
+        body.conditions, body.recommendations, body.region
+    )
+    return {"plan": plan}
+
+
 @app.post("/api/skin/analyze")
 async def analyze_skin(file: UploadFile = File(...)):
     image_bytes = await file.read()
@@ -97,11 +117,15 @@ async def analyze_skin(file: UploadFile = File(...)):
     result, source, chain = perfectcorp.analyze_skin(image_bytes)
     condition_names = [c["name"] for c in result.get("conditions", [])]
     recommendations = recommend_for_conditions(condition_names)
+    journey = build_journey_plan(
+        result.get("conditions", []), recommendations, region="pan-africa"
+    )
 
     return {
         "source": source,
         "analysis": result,
         "recommendations": recommendations,
+        "journey": journey,
         "fallback_chain": chain,
         "confidence": 0.85 if source == "perfect_corp" else 0.65,
         "message": result.get("summary", "Skin analysis complete."),
@@ -123,6 +147,25 @@ async def fashion_try_on(
         "result": result,
         "fallback_chain": chain,
         "garment": next((g for g in FASHION_ITEMS if g["id"] == garment_id), None),
+    }
+
+
+@app.post("/api/fashion/try-on-live")
+async def fashion_try_on_live(
+    file: UploadFile = File(...),
+    garment_id: str = Query("dress-01"),
+):
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(400, "Empty image")
+
+    result, source, chain = perfectcorp_vto.try_on_live(image_bytes, garment_id)
+    return {
+        "source": source,
+        "result": result,
+        "fallback_chain": chain,
+        "garment": next((g for g in FASHION_ITEMS if g["id"] == garment_id), None),
+        "live": True,
     }
 
 

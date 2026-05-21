@@ -36,9 +36,39 @@ SKIN_PRODUCTS = [
 ]
 
 FASHION_ITEMS = [
-    {"id": "dress-01", "name": "Ankara Wrap Dress", "category": "dress", "price_usd": 45},
-    {"id": "shirt-02", "name": "Kente Print Shirt", "category": "top", "price_usd": 32},
-    {"id": "acc-03", "name": "Beaded Statement Necklace", "category": "accessory", "price_usd": 28},
+    {
+        "id": "dress-01",
+        "name": "Ankara Wrap Dress",
+        "category": "dress",
+        "price_usd": 45,
+        "garment_category": "full_body",
+        "ref_file_url": (
+            "https://plugins-media.makeupar.com/strapi/assets/"
+            "clothes_reference_full_body_01_5a000d999f.png"
+        ),
+    },
+    {
+        "id": "shirt-02",
+        "name": "Kente Print Shirt",
+        "category": "top",
+        "price_usd": 32,
+        "garment_category": "upper",
+        "ref_file_url": (
+            "https://plugins-media.makeupar.com/strapi/assets/"
+            "clothes_03_cccd5d4803.jpeg"
+        ),
+    },
+    {
+        "id": "acc-03",
+        "name": "Beaded Statement Necklace",
+        "category": "accessory",
+        "price_usd": 28,
+        "garment_category": "upper",
+        "ref_file_url": (
+            "https://plugins-media.makeupar.com/strapi/assets/"
+            "clothes_reference_full_body_01_5a000d999f.png"
+        ),
+    },
 ]
 
 

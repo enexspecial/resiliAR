@@ -5,8 +5,11 @@ import {
   loadCachedSkin,
 } from "../lib/api";
 import type { SkinAnalyzeResponse } from "../types";
+import { UI_TOOLTIPS } from "../lib/tooltips";
 import { CameraCapture } from "./CameraCapture";
 import { FallbackChain } from "./FallbackChain";
+import { InfoTip } from "./ui/InfoTip";
+import { LoadingSpinner } from "./ui/LoadingSpinner";
 
 interface Props {
   onAnalysis?: (data: SkinAnalyzeResponse) => void;
@@ -33,9 +36,10 @@ export function SkinAdvisor({ onAnalysis }: Props) {
       const cached = loadCachedSkin();
       if (cached) {
         setResult(cached);
-        setError("Network issue — showing last cached analysis.");
+        onAnalysis?.(cached);
+        setError("Offline — showing your last results.");
       } else {
-        setError(e instanceof Error ? e.message : "Analysis failed");
+        setError(e instanceof Error ? e.message : "Analysis failed.");
       }
     } finally {
       setLoading(false);
@@ -43,56 +47,97 @@ export function SkinAdvisor({ onAnalysis }: Props) {
   };
 
   return (
-    <section className="feature-panel">
-      <header>
-        <h2>Skin Health Advisor</h2>
-        <p>
-          Live analysis via Perfect Corp — falls back to offline cache when APIs
-          fail.
-        </p>
-      </header>
-
-      <CameraCapture onCapture={runAnalysis} label="Open camera for skin scan" />
-
-      {preview && (
-        <img src={preview} alt="Your capture" className="preview-img" />
-      )}
-
-      {loading && <p className="status">Analyzing skin…</p>}
-      {error && <p className="error">{error}</p>}
-
-      {result && (
-        <div className="results">
-          <div className="score-card">
-            <span className="score">{result.analysis.overall_score}</span>
-            <span>Skin score</span>
+    <div>
+      <div className="page-intro">
+        <div className="page-intro__row">
+          <div>
+            <h2>Skin analysis</h2>
+            <p>Professional-grade AI scan with instant product matches.</p>
           </div>
-          <p>{result.message}</p>
-          <h3>Detected conditions</h3>
-          <ul className="condition-list">
-            {result.analysis.conditions.map((c) => (
-              <li key={c.name}>
-                <strong>{c.name}</strong>
-                <span className={`severity ${c.severity}`}>{c.severity}</span>
-                <span className="bar">
-                  <span style={{ width: `${c.score * 100}%` }} />
-                </span>
-              </li>
-            ))}
-          </ul>
-          <h3>Recommended products</h3>
-          <div className="product-grid">
-            {result.recommendations.map((p) => (
-              <article key={p.id} className="product-card">
-                <h4>{p.name}</h4>
-                <p>{p.category}</p>
-                <span>${p.price_usd}</span>
-              </article>
-            ))}
-          </div>
-          <FallbackChain chain={result.fallback_chain} source={result.source} />
+          <InfoTip content={UI_TOOLTIPS.scoreRing} label="About skin analysis" />
         </div>
-      )}
-    </section>
+      </div>
+
+      <div className="page-card">
+        <CameraCapture
+          onCapture={runAnalysis}
+          title="Scan your face"
+          hint="Best results in daylight, no heavy filters"
+        />
+
+        {preview && (
+          <div className="media-frame">
+            <img src={preview} alt="Your selfie" />
+          </div>
+        )}
+
+        {loading && <LoadingSpinner label="Analyzing your skin…" />}
+        {error && <div className="alert alert--error">{error}</div>}
+
+        {result && !loading && (
+          <>
+            <div className="score-ring">
+              <span className="score-ring__value">
+                {result.analysis.overall_score}
+              </span>
+              <span className="score-ring__label">Your skin score</span>
+            </div>
+
+            <p style={{ color: "var(--text-secondary)", marginBottom: "1rem" }}>
+              {result.message}
+            </p>
+
+            <h3 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>
+              What we noticed
+            </h3>
+            <div className="condition-cards">
+              {result.analysis.conditions.map((c) => (
+                <div key={c.name} className="condition-card">
+                  <div className="condition-card__top">
+                    <span className="condition-card__name">{c.name}</span>
+                    <span className={`badge badge--${c.severity}`}>
+                      {c.severity}
+                    </span>
+                  </div>
+                  <div className="progress-bar">
+                    <span style={{ width: `${c.score * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <h3 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>
+              Recommended for you
+            </h3>
+            <div className="product-list">
+              {(result.journey?.products ?? result.recommendations).map((p) => (
+                <article key={p.id} className="product-row">
+                  <div className="product-row__thumb" aria-hidden>
+                    ✨
+                  </div>
+                  <div className="product-row__body">
+                    <h4>{p.name}</h4>
+                    <p className="product-row__why">{p.why ?? p.category}</p>
+                    <span className="product-row__price">${p.price_usd}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {result.journey?.suggested_garment && (
+              <div className="hint-strip">
+                Also try:{" "}
+                <strong>{result.journey.suggested_garment.name}</strong> in Style
+              </div>
+            )}
+
+            <FallbackChain
+              chain={result.fallback_chain}
+              source={result.source}
+            />
+          </>
+        )}
+      </div>
+    </div>
   );
 }

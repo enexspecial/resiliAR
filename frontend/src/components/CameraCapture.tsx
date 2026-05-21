@@ -1,11 +1,20 @@
 import { useRef, useState } from "react";
+import { UI_TOOLTIPS } from "../lib/tooltips";
+import { IconCamera } from "./ui/Icons";
+import { InfoTip } from "./ui/InfoTip";
+import { Tooltip } from "./ui/Tooltip";
 
 interface Props {
   onCapture: (file: File) => void;
-  label?: string;
+  title?: string;
+  hint?: string;
 }
 
-export function CameraCapture({ onCapture, label = "Take photo" }: Props) {
+export function CameraCapture({
+  onCapture,
+  title = "Take a photo",
+  hint = "Good lighting, face the camera directly",
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [streaming, setStreaming] = useState(false);
@@ -60,34 +69,44 @@ export function CameraCapture({ onCapture, label = "Take photo" }: Props) {
     e.target.value = "";
   };
 
-  return (
-    <div className="camera-capture">
-      {streaming ? (
-        <div className="camera-live">
-          <video ref={videoRef} playsInline muted />
-          <div className="camera-actions">
-            <button type="button" className="btn primary" onClick={snap}>
-              Capture
-            </button>
-            <button type="button" className="btn ghost" onClick={stopCamera}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="camera-actions">
-          <button type="button" className="btn primary" onClick={startCamera}>
-            {label}
+  if (streaming) {
+    return (
+      <div className="camera-live">
+        <video ref={videoRef} playsInline muted />
+        <div className="capture-actions capture-actions--row" style={{ padding: "0.75rem" }}>
+          <button type="button" className="btn btn--primary" onClick={snap}>
+            Use this photo
           </button>
+          <button type="button" className="btn btn--secondary" onClick={stopCamera}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="capture-zone">
+      <IconCamera className="capture-zone__icon" />
+      <p className="capture-zone__title label-with-tip">
+        {title}
+        <InfoTip content={hint} wide label="Photo tips" />
+      </p>
+      <p className="capture-zone__hint">{hint}</p>
+      <div className="capture-actions">
+        <button type="button" className="btn btn--primary" onClick={startCamera}>
+          Open camera
+        </button>
+        <Tooltip content={UI_TOOLTIPS.uploadGallery} position="top">
           <button
             type="button"
-            className="btn ghost"
+            className="btn btn--secondary"
             onClick={() => inputRef.current?.click()}
           >
-            Upload image
+            Upload from gallery
           </button>
-        </div>
-      )}
+        </Tooltip>
+      </div>
       <input
         ref={inputRef}
         type="file"

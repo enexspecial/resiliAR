@@ -78,6 +78,20 @@ def triage_chat(
                         "content": f"Recent skin scan: {skin_context}",
                     }
                 )
+                recs = skin_context.get("recommendations") if isinstance(
+                    skin_context, dict
+                ) else None
+                if recs:
+                    names = [r.get("name") for r in recs if r.get("name")]
+                    messages.append(
+                        {
+                            "role": "system",
+                            "content": (
+                                "Recommended products from scan: "
+                                + ", ".join(names)
+                            ),
+                        }
+                    )
             for h in history[-6:]:
                 messages.append({"role": h["role"], "content": h["content"]})
             messages.append({"role": "user", "content": message})

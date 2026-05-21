@@ -1,18 +1,29 @@
 import { useRef, useState } from "react";
 import { triageChat } from "../lib/api";
-import type { SkinAnalyzeResponse, TriageMessage } from "../types";
+import type { TriageMessage } from "../types";
+import { UI_TOOLTIPS } from "../lib/tooltips";
 import { FallbackChain } from "./FallbackChain";
+import { InfoTip } from "./ui/InfoTip";
+import { LoadingSpinner } from "./ui/LoadingSpinner";
+import { Tooltip } from "./ui/Tooltip";
+
+const QUICK_PROMPTS = [
+  "What SPF fits my routine?",
+  "Can I combine these products?",
+  "When should I see a doctor?",
+];
 
 interface Props {
-  skinContext?: SkinAnalyzeResponse | null;
+  skinContext?: Record<string, unknown> | null;
 }
 
 export function TelePharmacy({ skinContext }: Props) {
   const [messages, setMessages] = useState<TriageMessage[]>([
     {
       role: "assistant",
-      content:
-        "Hello! I'm your ResiliAR tele-pharmacy assistant. Ask about skin concerns or OTC products — I route through TrueFoundry's AI Gateway with automatic fallbacks.",
+      content: skinContext
+        ? "Hi! I've reviewed your skin scan — ask me anything about your routine or OTC products."
+        : "Hi! I'm your beauty care assistant. Ask about skin care or products — start with a scan on Home for personalized answers.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -21,8 +32,8 @@ export function TelePharmacy({ skinContext }: Props) {
   const [lastSource, setLastSource] = useState<string>();
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const send = async () => {
-    const text = input.trim();
+  const send = async (textOverride?: string) => {
+    const text = (textOverride ?? input).trim();
     if (!text || loading) return;
 
     const userMsg: TriageMessage = { role: "user", content: text };
@@ -35,7 +46,7 @@ export function TelePharmacy({ skinContext }: Props) {
       const res = await triageChat(
         text,
         history.filter((m) => m.role === "user" || m.role === "assistant"),
-        skinContext?.analysis ?? null
+        skinContext ?? null
       );
       setMessages((prev) => [
         ...prev,
@@ -54,55 +65,95 @@ export function TelePharmacy({ skinContext }: Props) {
         {
           role: "assistant",
           content:
-            "Connection lost — here's cached guidance: gentle cleanser, SPF, moisturizer. See a clinic if symptoms worsen.",
+            "You're offline — gentle cleanser, SPF 30+, and moisturizer are a safe baseline. See a clinic if symptoms worsen.",
           source: "offline_cache",
         },
       ]);
       setLastSource("offline_cache");
-      setLastChain(["network: failed", "fallback: offline cached triage"]);
+      setLastChain(["network: failed", "fallback: offline"]);
     } finally {
       setLoading(false);
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      setTimeout(
+        () => bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
+        50
+      );
     }
   };
 
   return (
-    <section className="feature-panel triage-panel">
-      <header>
-        <h2>Tele-Pharmacy Triage</h2>
-        <p>
-          Multi-LLM agent via TrueFoundry — Claude → GPT-4o → Gemini → offline
-          cache.
-        </p>
-      </header>
+    <div className="chat-panel">
+      <div className="page-intro">
+        <div className="page-intro__row">
+          <div>
+            <h2>Care assistant</h2>
+            <p>Friendly guidance on products and everyday skin questions.</p>
+          </div>
+          <InfoTip
+            content={UI_TOOLTIPS.careAssistant}
+            wide
+            label="About care assistant"
+          />
+        </div>
+      </div>
+
+      {skinContext && (
+        <div className="chat-banner">
+          ✓ Personalized to your scan
+          {typeof skinContext.overall_score === "number" && (
+            <> · Score {String(skinContext.overall_score)}</>
+          )}
+        </div>
+      )}
+
+      {!skinContext && (
+        <div className="alert alert--info">
+          Tip: complete a skin scan on Home for answers tailored to you.
+        </div>
+      )}
+
+      <div className="chat-suggestions">
+        {QUICK_PROMPTS.map((q) => (
+          <Tooltip key={q} content="Tap to send this question" position="top">
+            <button type="button" onClick={() => send(q)}>
+              {q}
+            </button>
+          </Tooltip>
+        ))}
+      </div>
 
       <div className="chat-window">
         {messages.map((m, i) => (
           <div key={`${m.role}-${i}`} className={`chat-bubble ${m.role}`}>
             <p>{m.content}</p>
-            {m.source && (
-              <span className="bubble-source">{m.source.replace(/_/g, " ")}</span>
+            {m.source && m.role === "assistant" && (
+              <span className="bubble-meta">{m.source.replace(/_/g, " ")}</span>
             )}
           </div>
         ))}
-        {loading && <p className="status">Routing through AI Gateway…</p>}
+        {loading && <LoadingSpinner label="Thinking…" />}
         <div ref={bottomRef} />
       </div>
 
-      <div className="chat-input-row">
+      <div className="chat-input-bar">
         <input
           type="text"
-          placeholder="e.g. What OTC cream helps mild acne in humid climates?"
+          placeholder="Ask about your skin or products…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
+          aria-label="Message"
         />
-        <button type="button" className="btn primary" onClick={send} disabled={loading}>
+        <button
+          type="button"
+          className="btn btn--primary btn--sm"
+          onClick={() => send()}
+          disabled={loading || !input.trim()}
+        >
           Send
         </button>
       </div>
 
       <FallbackChain chain={lastChain} source={lastSource} />
-    </section>
+    </div>
   );
 }
